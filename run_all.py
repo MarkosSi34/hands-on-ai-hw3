@@ -77,10 +77,18 @@ def run_task3(model):
 
 
 def run_bonus(model):
+    # NB: call the pipeline directly, NOT bonus_2bit_hqq.main() — main() re-parses
+    # sys.argv and would choke on run_all's own flags (e.g. --tasks all).
+    hqq_row = bonus_2bit_hqq.HQQ2BitBenchmark(model_name=model).run_pipeline()
     if model == MODEL_NAME:
-        bonus_2bit_hqq.main()            # full FP32→INT2 curve (points are for this model)
+        points = {
+            "FP32": (1884.6, 22.733),
+            "BF16": (942.3, 22.664),
+            "INT4": (430.4, 27.502),
+            "INT2": (hqq_row["Size (MB)"], hqq_row["Perplexity"]),
+        }
+        bonus_2bit_hqq.plot_precision_curve(points)
     else:
-        bonus_2bit_hqq.HQQ2BitBenchmark(model_name=model).run_pipeline()
         logging.info("Bonus curve skipped for non-default model (Task 1 points differ).")
 
 
