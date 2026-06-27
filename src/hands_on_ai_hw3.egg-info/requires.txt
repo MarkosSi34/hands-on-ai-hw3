@@ -1,0 +1,12 @@
+torch
+transformers
+accelerate
+datasets
+numpy
+matplotlib
+bitsandbytes
+auto-gptq
+optimum
+hqq
+
+[bonus]

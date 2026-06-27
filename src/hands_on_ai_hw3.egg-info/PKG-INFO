@@ -1,0 +1,142 @@
+Metadata-Version: 2.4
+Name: hands-on-ai-hw3
+Version: 0.1.0
+Summary: Quantization in Practice — precision benchmarking, GPTQ vs naive INT4, calibration sensitivity, deployment report.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: torch
+Requires-Dist: transformers
+Requires-Dist: accelerate
+Requires-Dist: datasets
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: bitsandbytes
+Requires-Dist: auto-gptq
+Requires-Dist: optimum
+Requires-Dist: hqq
+Provides-Extra: bonus
+
+# Quantization in Practice | Hands-on AI Homework 3
+**Φοιτητής:** Μάρκος Συρούκης  
+**A.M.:** 09325023  
+**Εξάμηνο:** 2ο  
+**Μάθημα:** Hands-on AI Homework 3  
+**Σχολή:** ΣΕΜΦΕ, ΕΜΠ  
+
+---
+
+Εφαρμογή των αλγορίθμων quantization (που υλοποιήθηκαν from-scratch στο lab) σε
+ένα πραγματικό γλωσσικό μοντέλο, με τις βιβλιοθήκες παραγωγής **bitsandbytes**,
+**AutoGPTQ** και **hqq**. Συγκρίνουμε επίπεδα ακρίβειας (FP32 → INT2),
+αξιολογούμε το GPTQ έναντι naive rounding, μελετάμε την ευαισθησία στα δεδομένα
+calibration, και καταλήγουμε σε τεκμηριωμένες προτάσεις deployment.
+
+> **Σημείωση:** ο κώδικας του lab (NumPy) **δεν** χρησιμοποιείται εδώ· οι
+> βιβλιοθήκες υλοποιούν τους ίδιους αλγορίθμους σε κλίμακα με hardware-optimised
+> kernels.
+
+---
+
+## 1. Μοντέλο & Hardware
+
+- **Μοντέλο:** `Qwen/Qwen2.5-0.5B` _(ίδιο σε όλα τα tasks — ορίζεται στο `src/common.py:MODEL_NAME`)_
+- **Hardware:** _TODO — CPU/GPU, RAM/VRAM που χρησιμοποιήθηκε_
+- **Evaluation corpus:** WikiText-2 test split, πρώτα 256 tokens κάθε εγγράφου,
+  **σταθερό** σε όλα τα Tasks 1–3 (`src/common.load_eval_corpus`).
+
+---
+
+## 2. Δομή Project
+
+```
+.
+├── pyproject.toml              # uv project + dependencies
+├── requirements.txt            # pinned deps (uv pip compile)
+├── src/
+│   └── common.py               # FIXED eval corpus, perplexity, μετρήσεις
+├── task1_benchmark.py          # Task 1 — precision sweep (FP32/BF16/INT8/INT4)
+├── task2_gptq.py               # Task 2 — GPTQ vs naive INT4
+├── task3_calibration.py        # Task 3 — calibration domain sensitivity
+├── bonus_2bit_hqq.py           # Bonus A — 2-bit HQQ + precision curve
+├── report.md                   # Task 4 — deployment recommendations (≥500 λέξεις)
+├── collaboration_report.md     # Bonus B — joint report (προαιρετικό)
+└── results/                    # όλα τα PNG deliverables
+```
+
+> Τα quantized weights **δεν** commit-άρονται (μεγάλα + αναπαραγώγιμα — βλ.
+> `.gitignore`). Τα GPTQ μοντέλα cache-άρονται τοπικά για επαναχρησιμοποίηση.
+
+---
+
+## 3. Εγκατάσταση (uv)
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install -e .          # ή: uv pip install -r requirements.txt
+```
+
+---
+
+## 4. Εκτέλεση — μία εντολή ανά task
+
+```bash
+python task1_benchmark.py      # → results/task1_benchmarks.png + πίνακας
+python task2_gptq.py           # → results/task2_weight_distributions.png, task2_gptq_comparison.png
+python task3_calibration.py    # → results/task3_calibration_study.png
+python bonus_2bit_hqq.py       # → results/bonus_2bit_precision_curve.png (Bonus A)
+```
+
+---
+
+## 5. Task 1 — Precision Benchmark _(αποτελέσματα)_
+
+| Precision | Size (MB) | Memory (MB) | Tokens/sec | Perplexity |
+|-----------|-----------|-------------|------------|------------|
+| FP32      | _TODO_    | _TODO_      | _TODO_     | _TODO_     |
+| BF16      | _TODO_    | _TODO_      | _TODO_     | _TODO_     |
+| INT8      | _TODO_    | _TODO_      | _TODO_     | _TODO_     |
+| INT4      | _TODO_    | _TODO_      | _TODO_     | _TODO_     |
+
+_Σχόλιο: σε ποιο επίπεδο ακρίβειας το trade-off ποιότητας–αποδοτικότητας είναι
+πιο ευνοϊκό; Σύνδεση με τα σφάλματα quantization του lab._
+
+---
+
+## 6. Task 2 — GPTQ vs Naive INT4 _(αποτελέσματα)_
+
+| Config | Method | Perplexity | Tokens/sec |
+|--------|--------|------------|------------|
+| A | BF16 baseline | _TODO_ | — |
+| B | Naive INT4 (NF4) | _TODO_ | _TODO_ |
+| C | GPTQ INT4 | _TODO_ | _TODO_ |
+
+- **GPTQ advantage έναντι naive INT4:** _TODO_ PPL absolute, **_TODO_ %** reduction.
+- **GPTQ calibration time:** _TODO_ λεπτά (128 samples, WikiText-2 **train** split).
+
+---
+
+## 7. Task 3 — Calibration Data Sensitivity _(αποτελέσματα)_
+
+| Config | Calibration domain | WikiText-2 PPL | Python code PPL |
+|--------|--------------------|----------------|-----------------|
+| BF16 baseline | — | _TODO_ | _TODO_ |
+| GPTQ C1 | Wikipedia | _TODO_ | _TODO_ |
+| GPTQ C2 | Python | _TODO_ | _TODO_ |
+| GPTQ C3 | Academic | _TODO_ | _TODO_ |
+
+_Συμπέρασμα ευαισθησίας domain: έχει σημασία το domain match; Ποια config
+νικάει σε WikiText-2 και ποια σε Python code;_
+
+---
+
+## 8. Παραδοτέα (checklist)
+
+- [ ] `task1_benchmark.py` — πίνακας + `results/task1_benchmarks.png`
+- [ ] `task2_gptq.py` — `results/task2_weight_distributions.png`, `results/task2_gptq_comparison.png`
+- [ ] `task3_calibration.py` — `results/task3_calibration_study.png`
+- [ ] `report.md` — Task 4 (≥500 λέξεις)
+- [ ] `requirements.txt` + `pyproject.toml`
+- [ ] `README.md` (αυτό το αρχείο, συμπληρωμένο)
+- [ ] _(Bonus A)_ `results/bonus_2bit_precision_curve.png`
+- [ ] _(Bonus B)_ `collaboration_report.md`

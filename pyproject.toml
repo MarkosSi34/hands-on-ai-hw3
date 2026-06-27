@@ -1,0 +1,28 @@
+[project]
+name = "hands-on-ai-hw3"
+version = "0.1.0"
+description = "Quantization in Practice — precision benchmarking, GPTQ vs naive INT4, calibration sensitivity, deployment report."
+readme = "README.md"
+requires-python = ">=3.10"
+
+dependencies = [
+    "torch",
+    "transformers",
+    "accelerate",
+    "datasets",
+    "numpy",
+    "matplotlib",
+    "bitsandbytes",   # INT8 / NF4 INT4 (Tasks 1–2); GPU-only kernels
+    "gptqmodel",      # GPTQ INT4 (Tasks 2–3) — successor to the abandoned auto-gptq
+    "torchvision",    # transitive: gptqmodel imports it eagerly at module load
+    "optimum",        # quantization integration glue
+    "hqq",            # native 2-bit, no calibration (Bonus A)
+]
+
+[project.optional-dependencies]
+# Bonus B — quantizing a classmate's model may pull extra deps; add here.
+bonus = []
+
+[tool.uv]
+# Pin once your environment is frozen:  uv pip compile pyproject.toml -o requirements.txt
+package = false

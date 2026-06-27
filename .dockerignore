@@ -1,0 +1,26 @@
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.git/
+.gitignore
+
+# quantized weights & caches — rebuilt at runtime, never ship them in the image
+gptq_model/
+gptq_model_*/
+gptq_C1/
+gptq_C2/
+gptq_C3/
+gptq_C1_*/
+gptq_C2_*/
+gptq_C3_*/
+gptq_ablation/
+*.safetensors
+*.bin
+models/
+hf_cache/
+.cache/
+data/
+
+# host artifacts not needed in the image
+Quantization.pdf
