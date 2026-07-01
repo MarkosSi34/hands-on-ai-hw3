@@ -1,22 +1,3 @@
-"""
-Task 2 — GPTQ vs Naive INT4.
-
-Apply GPTQ (Hessian-based error compensation) to the full model and quantify
-how much it beats naive NF4 rounding at real scale.
-
-Configurations
-    A  BF16 baseline          (torch.bfloat16)
-    B  Naive INT4             (bitsandbytes NF4)
-    C  GPTQ INT4              (AutoGPTQ, calibrated on 128 TRAINING samples)
-
-Run:
-    python task2_gptq.py
-
-Produces:
-    results/task2_weight_distributions.png   — weight histograms A vs B vs C
-    results/task2_gptq_comparison.png        — perplexity + throughput bars
-    a cached GPTQ model under gptq_model/     (NOT committed — see .gitignore)
-"""
 import argparse
 import logging
 import os
@@ -24,6 +5,7 @@ import time
 
 import matplotlib.pyplot as plt
 import torch
+import bitsandbytes.functional as bnbF
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.common import (
@@ -127,11 +109,31 @@ class GPTQComparison:
 
     # Weight distribution plot
     def _get_attn_weights(self, model):
-        """Return the flattened (dequantized) weights of the chosen matrix."""
-        for name, param in model.named_parameters():
-            if WEIGHT_KEY_SUBSTR in name and "weight" in name:
-                return param.detach().float().flatten().cpu()
-        logging.warning(f"No parameter matched '{WEIGHT_KEY_SUBSTR}'.")
+        """Return the flattened, DEQUANTIZED weights of the chosen matrix so all
+        three panels share the same real weight-value x-axis.
+        """
+        for name, module in model.named_modules():
+            if WEIGHT_KEY_SUBSTR not in name or not name.endswith("q_proj"):
+                continue
+            # GPTQ packed linear: reconstruct the float weights it encodes.
+            if hasattr(module, "dequantize_weight"):
+                try:
+                    W = module.dequantize_weight()
+                    return W.detach().float().flatten().cpu()
+                except Exception as exc:
+                    logging.warning(f"GPTQ dequantize failed on {name}: {exc}")
+                    return None
+            w = getattr(module, "weight", None)
+            if w is None:
+                continue
+            # bitsandbytes NF4: the Params4bit carries a quant_state to invert.
+            qs = getattr(w, "quant_state", None)
+            if qs is not None:
+                W = bnbF.dequantize_4bit(w.data, quant_state=qs)
+                return W.detach().float().flatten().cpu()
+            # plain float weight (BF16 baseline).
+            return w.detach().float().flatten().cpu()
+        logging.warning(f"No q_proj module matched '{WEIGHT_KEY_SUBSTR}'.")
         return None
 
     def _plot_weight_distributions(self, weights: dict[str, torch.Tensor],
@@ -245,8 +247,8 @@ class GPTQComparison:
 def main():
     parser = argparse.ArgumentParser(description="Task 2: GPTQ vs Naive INT4")
     parser.add_argument("--model", default=MODEL_NAME)
-    parser.parse_args()
-    GPTQComparison().run_pipeline()
+    args = parser.parse_args()
+    GPTQComparison(model_name=args.model).run_pipeline()
 
 
 if __name__ == "__main__":
