@@ -5,6 +5,9 @@ __pycache__/
 .idea/
 .Rhistory
 
+# Assignment PDF — not a deliverable, should not be tracked
+Quantization.pdf
+
 # ── Quantized model weights — DO NOT COMMIT (assignment rule) ─
 # Large and fully reproducible from the scripts. Commit only code + results.
 gptq_model/
