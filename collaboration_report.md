@@ -1,27 +1,147 @@
-# Bonus B — Cross-Assignment Collaboration Report
+# Bonus B: Συνεργασία / Cross-architecture Portability Study
 
-> Optional bonus. Delete this file if you do not pursue the collaboration.
-> Committed to **both** repositories. Both students get the bonus independently
-> (one for providing the model, one for quantizing it).
+## Πλαίσιο & ειλικρινής αναπλαισίωση
 
-## Collaboration details
-- **Collaborating classmate:** _TODO (name / A.M.)_
-- **Their Homework 3 topic:** _TODO (LLM from Scratch / Generative AI / Agentic AI / RAG)_
-- **Model provided:** _TODO — must be a HuggingFace-compatible transformer LM
-  (a local open-weight model, NOT an API model; NOT an RL policy or CV/CLIP model)._
+Το Bonus B ζητά να εφαρμόσουμε το quantization pipeline μας σε **μοντέλο που δεν
+φτιάξαμε εμείς**, ιδανικά ενός συμφοιτητή. Παρά τις προσπάθειες, **δεν βρέθηκε
+συμφοιτητής διαθέσιμος για συνεργασία**. Αντί να εγκαταλείψουμε το ζητούμενο,
+κρατήσαμε την *ουσία* του: η δεξιότητα που ελέγχεται είναι «μπορείς να πάρεις το
+toolkit σου και να το εφαρμόσεις σε ένα ξένο μοντέλο/αρχιτεκτονική;». Έτσι το
+εκτελέσαμε ως **cross-architecture portability study**: τρέξαμε ολόκληρο το pipeline
+(Tasks 1–3 + Bonus A) σε ένα μοντέλο **διαφορετικής αρχιτεκτονικής** από το
+`Qwen/Qwen2.5-0.5B` των κύριων πειραμάτων.
 
-## What was applied
-- **Quantization configurations applied (≥2):** _TODO, e.g. BF16 and GPTQ INT4._
-- **Evaluation set used:** _TODO (≥10 example inputs with expected outputs,
-  provided by the model owner)._
+**Επιλογή μοντέλου:** `meta-llama/Llama-3.2-1B-Instruct`. Είναι σκόπιμα *διαφορετική
+οικογένεια* από το Qwen (διαφορετικός tokenizer, διαφορετική δομή attention/MLP,
+instruction-tuned, και 1B αντί 0.5B παραμέτρων), ώστε ο έλεγχος φορητότητας να είναι
+ουσιαστικός και όχι απλώς άλλο μέγεθος της ίδιας οικογένειας (αυτό το καλύπτει ήδη το
+scaling extension Qwen 0.5B→1.5B).
 
-## Results — quality before vs after quantization
+_Σημείωση, γιατί Instruct: αφού δεν υπήρχε διαθέσιμος συμφοιτητής, επιλέξαμε σκόπιμα
+την **Instruct** (production / deployment) παραλλαγή αντί της base, ώστε να
+**προσομοιώσουμε** ρεαλιστικά το μοντέλο που θα παρέδιδε ένας συμφοιτητής, ένα
+fine-tuned / deployed μοντέλο, όχι ένα raw base checkpoint._
 
-| Config | Metric (e.g. PPL / accuracy / exact-match) | Value |
-|--------|--------------------------------------------|-------|
-| BF16 (baseline) | _TODO_ | _TODO_ |
-| GPTQ INT4       | _TODO_ | _TODO_ |
+**Hardware & αναπαραγωγιμότητα.** Ίδιο setup με τα κύρια benchmarks: rented **RTX 4090**
+(Ada sm_89, vast.ai), `GPTQ_BACKEND=auto` ώστε να φορτώνει το Marlin kernel. Το
+`Llama-3.2` είναι **gated** μοντέλο και άρα απαιτεί αποδοχή της Llama Community License στο
+HuggingFace και access token. Όλα τρέχουν με μία εντολή:
 
-## Discussion
-_TODO — did the model's task performance survive quantization? Connect to the
-calibration-domain findings from Task 3._
+```bash
+GPTQ_BACKEND=auto python run_all.py --tasks 1 2 3 bonus \
+    --model meta-llama/Llama-3.2-1B-Instruct
+```
+
+Τα plots αποθηκεύονται namespaced (`*_Llama_3_2_1B_Instruct.png`), ώστε να μην
+επικαλύπτουν τα canonical Qwen plots. Το σταθερό eval corpus (`src/common`) είναι το
+ίδιο, άρα οι μετρήσεις *εντός* μοντέλου είναι συγκρίσιμες· **μεταξύ** μοντέλων
+συγκρίνουμε τη *σχετική* υποβάθμιση (όχι το απόλυτο PPL, που διαφέρει λόγω
+διαφορετικού tokenizer/μοντέλου).
+
+### Πρόσβαση στο gated μοντέλο και βήματα στο HuggingFace
+
+Το `meta-llama/Llama-3.2-1B-Instruct` είναι **gated**, δηλαδή δεν κατεβαίνει χωρίς αποδοχή
+άδειας και token. Τα βήματα για πλήρη αναπαραγωγή:
+
+1. **Λογαριασμός & άδεια.** Με συνδεδεμένο λογαριασμό HuggingFace, στη σελίδα του
+   μοντέλου (<https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct>) συμπλήρωσε τη
+   φόρμα αποδοχής της **Llama 3.2 Community License** (πεδίο *affiliation* → π.χ.
+   `National Technical University of Athens`). Η έγκριση είναι συνήθως άμεση έως λίγα
+   λεπτά(στην περίπτωσή μας max 10λεπτά αναμονή) το banner γίνεται «You have been granted access».
+2. **Δημιουργία token.** *Settings → Access Tokens → Create new token* με ρόλο
+   **Read**. Αντέγραψε το `hf_...` (εμφανίζεται μία φορά).
+3. **Authentication στο μηχάνημα.** `huggingface-cli login` (ή το νεότερο
+   `hf auth login`) και επικόλληση του token (η επικόλληση είναι αόρατη).
+   Εναλλακτικά, χωρίς prompt: `export HF_TOKEN=hf_xxx` στο ίδιο shell.
+4. **Εκτέλεση** του pipeline (εντολή παραπάνω) και πλέον κατεβαίνουν τα βάρη.
+5. **Ασφάλεια (σημαντικό σε rented server).** Μετά το πέρας, **ανάκληση του token**
+   (*Settings → Access Tokens → Delete*) και `huggingface-cli logout`. Ένα Read token
+   μπορεί μόνο να κατεβάζει μοντέλα, αλλά σε ξένο μηχάνημα το αντιμετωπίζουμε ως
+   εκτεθειμένο και το ακυρώνουμε. *Ungated εναλλακτική χωρίς token:*
+   `unsloth/Llama-3.2-1B-Instruct` (ίδια βάρη, χωρίς άδεια/token).
+
+---
+
+## Αποτελέσματα στο Llama-3.2-1B-Instruct
+
+### Task 1: Precision benchmark
+
+| Ακρίβεια | Μέγεθος (MB) | Μνήμη (MB) | Tokens/sec | Perplexity | vs BF16 |
+|---|---|---|---|---|---|
+| FP32 | 4714.3 | 5134.4 | 45.3 | 25.548 | −0.1% |
+| **BF16** | 2357.1 | 2758.0 | **50.3** | 25.573 | — |
+| INT8 | 1429.1 | 1831.5 | 14.1 | 25.959 | +1.5% |
+| INT4 (NF4) | 965.1 | 1424.1 | 36.2 | 27.900 | +9.1% |
+
+### Task 2: GPTQ vs naive INT4
+
+| Μέθοδος | Perplexity | Tokens/sec |
+|---|---|---|
+| BF16 baseline | 25.573 | 50.3* |
+| NF4 (naive INT4) | 27.900 | 36.06 |
+| GPTQ INT4 (Marlin) | 28.830 | **42.47** |
+
+\*Throughput BF16 από Task 1 (στο Task 2 μετρήθηκε μόνο PPL για το baseline).
+
+### Task 3: Calibration study
+
+| Calibration | WikiText-2 PPL | Python code PPL |
+|---|---|---|
+| BF16 baseline | 25.573 | 5.782 |
+| C1 (Wikipedia) | **28.496**  | 6.428 |
+| C2 (Python) | 31.833 | **5.913**  |
+| C3 (Academic) | 29.535 | 6.175 |
+
+### Bonus A: HQQ 2-bit
+
+| | Μέγεθος (MB) | Perplexity |
+|---|---|---|
+| INT2 (HQQ, calibration-free) | 733.1 | **274700** (κατάρρευση) |
+
+---
+
+## Σύγκριση με το Qwen2.5-0.5B, τι μεταφέρεται και τι όχι
+
+| Φαινόμενο | Qwen2.5-0.5B | Llama-3.2-1B | Συμπέρασμα |
+|---|---|---|---|
+| BF16 = sweet spot (ταχύτερο, ~lossless) | ναι (58.9 t/s, −0.3%) | ναι (50.3 t/s, −0.1%) | **Μεταφέρεται** |
+| INT8 ποινή ποιότητας | +1.2% | +1.5% | **Μεταφέρεται** (εντός 5% budget) |
+| INT8 αργό (LLM.int8 outlier path) | 10.4 t/s | 14.1 t/s | **Μεταφέρεται** |
+| NF4 ποινή ποιότητας | +21.3% | +9.1% | Μικρότερη σε μεγαλύτερο/διαφ. μοντέλο |
+| GPTQ vs NF4 **ποιότητα** | GPTQ νικά (+4.7%) | GPTQ χάνει (−3.3%) | **Εξαρτάται από το μοντέλο** |
+| GPTQ vs NF4 **ταχύτητα** (Marlin) | ταχύτερο (46.9 vs 35.6) | ταχύτερο (42.5 vs 36.1) | **Μεταφέρεται** |
+| 2-bit calibration-free | κατάρρευση (312k) | κατάρρευση (275k) | **Μεταφέρεται** (πρακτικό κατώφλι) |
+| Task 3 διαγώνιος (domain matching) | C1→En, C2→code | C1→En, C2→code | **Μεταφέρεται** |
+
+### Τι μάθαμε από τη φορητότητα
+
+1. **Τα δομικά συμπεράσματα είναι αρχιτεκτονικά ανεξάρτητα.** Το «BF16 ως default»,
+   το «INT8 ακριβές αλλά αργό», η «κατάρρευση στα 2-bit» και κυρίως η **διαγώνιος του
+   Task 3** (calibration domain = deployment domain) αναπαράγονται αυτούσια σε ξένη
+   αρχιτεκτονική. Αυτό ενισχύει την εγκυρότητα των προτάσεων deployment του Task 4:
+   δεν είναι artifacts του Qwen.
+
+2. **Η ποινή του NF4 είναι μικρότερη (+9.1% vs +21.3%).** Συμφωνεί με τον νόμο
+   κλίμακας που τεκμηριώνουμε στο scaling extension (0.5B→1.5B: +21%→+13.7%): ένα
+   μεγαλύτερο και διαφορετικά εκπαιδευμένο (instruction-tuned) μοντέλο απορροφά
+   καλύτερα το σφάλμα του 4-bit. Το 0.5B είναι worst-case μικρού μοντέλου.
+
+3. **'Ενα ενδιαφέρον εύρημα είναι ότι το πλεονέκτημα του GPTQ είναι λεπτότερο απ' ό,τι
+   φαίνεται στο Qwen.** Στο Qwen το GPTQ νικούσε το NF4 *και* σε ποιότητα *και* σε
+   ταχύτητα. Στο Llama, το GPTQ είναι **~3.3% χειρότερο σε perplexity** αλλά **~18%
+   ταχύτερο** (Marlin). Δηλαδή το **αξιόπιστο** όφελος του GPTQ είναι το *throughput*
+   μέσω του βελτιστοποιημένου kernel· το όφελος *ποιότητας* έναντι του NF4 εξαρτάται
+   από το μοντέλο (το Hessian error-compensation βοηθά περισσότερο σε ορισμένες
+   κατανομές βαρών). Αυτή η διάκριση δεν θα φαινόταν αν δοκιμάζαμε μόνο ένα μοντέλο και δίνει 
+   αξία στο πείραμα ενός cross-architecture ελέγχου.
+
+---
+
+## Συμπέρασμα
+
+Χωρίς διαθέσιμο συμφοιτητή, εκτελέσαμε το ζητούμενο του Bonus B ως έλεγχο φορητότητας
+σε ξένη αρχιτεκτονική (`meta-llama/Llama-3.2-1B-Instruct`). Το toolkit εφαρμόστηκε
+**χωρίς καμία αλλαγή κώδικα** (μόνο το flag `--model`), κάτι που από μόνο του δείχνει
+ότι το pipeline δεν ήταν Qwen-specific. Τα συμπεράσματα μεταφέρθηκαν στη συντριπτική
+πλειονότητα, ενώ ο έλεγχος ανέδειξε και μια ουσιαστική λεπτομέρεια (το διαχωρισμένο
+όφελος ποιότητας/ταχύτητας του GPTQ) που εμπλουτίζει την ανάλυση του Task 4.

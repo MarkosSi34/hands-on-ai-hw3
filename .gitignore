@@ -1,9 +1,9 @@
-# ── uv / virtualenv ────────────────────────────────────────
 .venv/
 uv.lock
 __pycache__/
 *.pyc
 .idea/
+.Rhistory
 
 # ── Quantized model weights — DO NOT COMMIT (assignment rule) ─
 # Large and fully reproducible from the scripts. Commit only code + results.
@@ -21,12 +21,19 @@ gptq_ablation/
 models/
 hf_cache/
 
-# ── Datasets cache ─────────────────────────────────────────
+# Datasets cache
 .cache/
 data/
 
 # ── gptqmodel auto-generated quant logs (junk, not deliverables) ─
 logs/
+logs_*.txt
+*.canonbak
+
+# Secrets — NEVER commit
+token.txt
+*.token
+.env
 
 # Keep the results/ PNGs (they ARE deliverables); ignore stray junk.
 results/*.tmp
