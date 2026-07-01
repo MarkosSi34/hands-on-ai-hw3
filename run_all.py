@@ -46,15 +46,29 @@ def _slug(model: str):
     return model.split("/")[-1].replace(".", "_").replace("-", "_")
 
 
-def _namespace_outputs(task: str, model: str):
-    """Append the model slug to a task's PNGs (only for non-default models)."""
+def _backup_canonical(task: str) -> dict:
+    """Copy existing canonical PNGs aside so a non-default-model run can't clobber
+    them when its task overwrites the fixed plot paths."""
+    saved = {}
+    for f in TASK_OUTPUTS.get(task, []):
+        if os.path.exists(f):
+            saved[f] = f + ".canonbak"
+            shutil.copy2(f, saved[f])
+    return saved
+
+
+def _namespace_outputs(task: str, model: str, saved: dict):
+    """Move the just-generated (non-default) PNGs to model-slug names, then restore
+    the backed-up canonical (default-model) plots."""
     s = _slug(model)
     for f in TASK_OUTPUTS.get(task, []):
         if os.path.exists(f):
             base, ext = os.path.splitext(f)
-            dst = f"{base}_{s}{ext}"
-            shutil.move(f, dst)
-            logging.info(f"Renamed plot → {dst} (keeping canonical names for {MODEL_NAME})")
+            shutil.move(f, f"{base}_{s}{ext}")
+            logging.info(f"Saved model-specific plot → {base}_{s}{ext}")
+    for f, bak in saved.items():
+        shutil.move(bak, f)
+        logging.info(f"Restored canonical plot {f} (for {MODEL_NAME})")
 
 
 def run_task1(model):
@@ -84,6 +98,7 @@ def run_bonus(model):
         points = {
             "FP32": (1884.6, 22.733),
             "BF16": (942.3, 22.664),
+            "INT8": (601.0, 22.936),
             "INT4": (430.4, 27.502),
             "INT2": (hqq_row["Size (MB)"], hqq_row["Perplexity"]),
         }
@@ -116,9 +131,12 @@ def main():
             logging.warning(f"Unknown task '{t}', skipping.")
             continue
         logging.info(f"================  TASK {t}  ================")
-        DISPATCH[t](args.model)
         if args.model != MODEL_NAME:
-            _namespace_outputs(t, args.model)
+            saved = _backup_canonical(t)
+            DISPATCH[t](args.model)
+            _namespace_outputs(t, args.model, saved)
+        else:
+            DISPATCH[t](args.model)
     logging.info("All requested tasks finished.")
 
 

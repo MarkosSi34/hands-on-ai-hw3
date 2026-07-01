@@ -25,7 +25,8 @@ from hqq.core.quantize import BaseQuantizeConfig
 from hqq.models.hf.base import AutoHQQHFModel
 
 from src.common import (
-    MODEL_NAME, DEVICE, load_eval_corpus, perplexity, measure_size_mb, free,
+    MODEL_NAME, DEVICE, load_eval_corpus, perplexity, measure_size_mb,
+    measure_throughput, reset_peak_memory, read_peak_memory_mb, free,
 )
 
 logging.basicConfig(
@@ -33,9 +34,12 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
+THROUGHPUT_PROMPT = "The history of artificial intelligence began"
+
 
 class HQQ2BitBenchmark:
-    """Quantizes the model to 2-bit with HQQ and measures size + perplexity."""
+    """Quantizes the model to 2-bit with HQQ and measures the full Task-1 metric
+    set (size, peak memory, throughput, perplexity) for the INT2 row."""
 
     def __init__(self, model_name: str = MODEL_NAME):
         self.model_name = model_name
@@ -56,11 +60,19 @@ class HQQ2BitBenchmark:
         return model
 
     def run_pipeline(self):
+        reset_peak_memory()
         model = self._load_hqq_2bit()
         size = measure_size_mb(model)
         ppl = perplexity(model, self.corpus)
+        tok_s = measure_throughput(model, self.tokenizer, THROUGHPUT_PROMPT)
+        peak = read_peak_memory_mb()          # None on CPU
         free(model)
-        row = {"Size (MB)": round(size, 1), "Perplexity": round(ppl, 3)}
+        row = {
+            "Size (MB)":   round(size, 1),
+            "Memory (MB)": round(peak, 1) if peak is not None else None,
+            "Tokens/sec":  round(tok_s, 1),
+            "Perplexity":  round(ppl, 3),
+        }
         logging.info(f"INT2 (HQQ): {row}")
         return row
 
@@ -97,20 +109,14 @@ def main():
     parser.parse_args()
 
     hqq_row = HQQ2BitBenchmark().run_pipeline()
-
-    # (size_mb, perplexity) for FP32..INT4 taken from this project's Task 1 run
-    # on the GTX 1660. INT8 is omitted: bitsandbytes LLM.int8() is unsupported on
-    # the GTX 16-series (no cublasLt INT8 — see README §4½), so we have no point.
     points = {
         "FP32": (1884.6, 22.733),
-        "BF16": (942.3, 22.657),
-        "INT4": (430.4, 27.504),
+        "BF16": (942.3, 22.664),
+        "INT8": (601.0, 22.936),
+        "INT4": (430.4, 27.502),
         "INT2": (hqq_row["Size (MB)"], hqq_row["Perplexity"]),
     }
-    if all(v[0] is not None for v in points.values()):
-        plot_precision_curve(points)
-    else:
-        logging.info("Fill the FP32..INT4 points from Task 1, then re-run to plot.")
+    plot_precision_curve(points)
 
 
 if __name__ == "__main__":
