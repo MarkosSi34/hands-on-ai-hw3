@@ -139,7 +139,19 @@ class GPTQComparison:
     def _plot_weight_distributions(self, weights: dict[str, torch.Tensor],
                                    path: str = "results/task2_weight_distributions.png"):
         os.makedirs("results", exist_ok=True)
-        present = [(k, w) for k, w in weights.items() if w is not None]
+        # Filter NaN/inf (GPTQ dequant can emit them for some models) and drop any panel left empty
+        present = []
+        for label, w in weights.items():
+            if w is None:
+                continue
+            w = w[torch.isfinite(w)]
+            if w.numel() == 0:
+                logging.warning(f"Panel '{label}' has no finite weights; skipping it.")
+                continue
+            present.append((label, w))
+        if not present:
+            logging.warning("No finite weights to plot; skipping weight-distribution plot.")
+            return
         fig, axes = plt.subplots(1, len(present), figsize=(5 * len(present), 4), sharey=True)
         if len(present) == 1:
             axes = [axes]
