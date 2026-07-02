@@ -12,7 +12,7 @@ RUN apt-get update \
 WORKDIR /app
 
 # Self-contained: pull the code straight from GitHub (same as the HW1 image).
-RUN git clone -b gpu-branch https://github.com/MarkosSi34/hands-on-ai-hw3.git .
+RUN git clone https://github.com/MarkosSi34/hands-on-ai-hw3.git .
 
 # venv, then torch/torchvision FIRST, pinned to the lockfile versions and pulled
 # from the CUDA-matched wheel index. Because the version matches the lockfile, the
