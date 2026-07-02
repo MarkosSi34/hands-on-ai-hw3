@@ -1,9 +1,0 @@
-README.md
-pyproject.toml
-src/__init__.py
-src/common.py
-src/hands_on_ai_hw3.egg-info/PKG-INFO
-src/hands_on_ai_hw3.egg-info/SOURCES.txt
-src/hands_on_ai_hw3.egg-info/dependency_links.txt
-src/hands_on_ai_hw3.egg-info/requires.txt
-src/hands_on_ai_hw3.egg-info/top_level.txt

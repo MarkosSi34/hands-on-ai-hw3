@@ -2,6 +2,7 @@
 uv.lock
 __pycache__/
 *.pyc
+*.egg-info/
 .idea/
 .Rhistory
 
