@@ -1,14 +1,16 @@
 # Homework 3 — Quantization. Tested on Python >= 3.10.
 #
-# This project uses uv. Preferred install:
-#     uv venv && uv pip install -e .
-# Or, from this pinned list:
-#     uv pip install -r requirements.txt
+#  EXACT PINNED VERSIONS → see requirements.lock.txt
+# This file lists the direct dependencies (unpinned on purpose: torch is
+# resolved from the CUDA-matched wheel index, which differs per host).
+# For the EXACT versions used in the final RTX 4090 runs, install from:
+#     pip install -r requirements.lock.txt
 #
-# Pin to the versions you actually ran with before submitting — regenerate with:
-#     uv pip compile pyproject.toml -o requirements.txt
+#
+# Preferred install (uv):   uv venv && uv pip install -e .
+# Classic install (pip):    pip install -r requirements.txt
 
-# ── Core inference stack ───────────────────────────────────
+# Core inference stack
 torch
 transformers
 accelerate
@@ -16,7 +18,7 @@ datasets
 numpy
 matplotlib
 
-# ── Quantization backends ──────────────────────────────────
+# Quantization backends
 bitsandbytes      # INT8 / NF4 INT4 (Tasks 1–2); GPU-only kernels
 gptqmodel         # GPTQ INT4 (Tasks 2–3) — successor to the abandoned auto-gptq
 torchvision       # transitive: gptqmodel imports it eagerly at module load
